@@ -10,4 +10,9 @@ Group studying application
 - `npm run dev`
 Navigate to the link for the whiteboard.
 
+## Server
+This server is responsible for hosting all of the connections.
+- `cd server`
+- `npm i`
+- `node index.js`
 
