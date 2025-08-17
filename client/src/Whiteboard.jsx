@@ -533,7 +533,7 @@ export default function Whiteboard() {
           }}
           title="Toggle between draw and select mode (Press 'S')"
         >
-          {isSelectMode ? '👆 Select' : '✏️ Draw'}
+          {isSelectMode ? '👆 Selecting Mode' : '✏️ Drawing Mode'}
         </button>
         <button onClick={handleClear}>Clear</button>
         <button onClick={handleFileUpload}>Upload Image</button>
@@ -570,8 +570,8 @@ export default function Whiteboard() {
         <p><strong>Controls:</strong></p>
         <ul>
           <li><strong>Toggle Mode:</strong> Click "Draw/Select" button or press 'S'</li>
-          <li><strong>Draw Mode:</strong> ✏️ Draw lines on canvas</li>
-          <li><strong>Select Mode:</strong> 👆 Click to select/move images</li>
+          <li><strong>Drawing Mode:</strong> ✏️ Draw lines on canvas</li>
+          <li><strong>Selecting Mode:</strong> 👆 Click to select/move images</li>
         </ul>
         <p><strong>Image Controls:</strong></p>
         <ul>
