@@ -65,18 +65,26 @@ function startTimer(roomId) {
       timerState.isRunning = false;
       
       // Notify all clients that timer finished (for sound notification)
-      io.to(roomId).emit('timer_finished');
+      const completedSession = timerState.isBreak ? 'break' : 'focus'
+      let nextSession
       
       if (timerState.isBreak) {
         // Break finished, start focus session
         timerState.isBreak = false;
         timerState.timeLeft = timerState.focusMinutes * 60;
+        nextSession = 'focus'
       } else {
         // Focus session finished, start break
         timerState.isBreak = true;
         timerState.sessions++;
         timerState.timeLeft = timerState.breakMinutes * 60;
+        nextSession = 'break'
       }
+      
+      io.to(roomId).emit('timer_finished', {
+        sessionType: completedSession,
+        nextSessionType: nextSession
+      });
       
       console.log(`Timer session completed in room ${roomId}. New state: ${timerState.isBreak ? 'Break' : 'Focus'}, Sessions: ${timerState.sessions}`);
     }
@@ -187,6 +195,10 @@ io.on('connection', (socket) => {
   socket.on('timer_start', (data) => {
     const roomId = data.roomId || socket.roomId || 'global';
     console.log(`Timer start requested by ${socket.id} in room ${roomId}`);
+    
+    // Send immediate feedback to all clients
+    io.to(roomId).emit('timer_started');
+    
     startTimer(roomId);
   });
 
@@ -194,6 +206,10 @@ io.on('connection', (socket) => {
   socket.on('timer_pause', (data) => {
     const roomId = data.roomId || socket.roomId || 'global';
     console.log(`Timer pause requested by ${socket.id} in room ${roomId}`);
+    
+    // Send immediate feedback to all clients
+    io.to(roomId).emit('timer_paused');
+    
     pauseTimer(roomId);
   });
 

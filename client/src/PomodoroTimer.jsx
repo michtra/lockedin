@@ -16,6 +16,13 @@ export default function PomodoroTimer() {
   const [clientId] = useState(() => Math.random().toString(36).slice(2, 9))
   const roomId = 'global' // Same room as whiteboard
 
+  // Request notification permission on component mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
   // Initialize socket connection
   useEffect(() => {
     socketRef.current = io(SERVER_URL)
@@ -38,9 +45,19 @@ export default function PomodoroTimer() {
       setBreakMinutes(data.breakMinutes)
     })
 
+    // Listen for immediate control responses (for faster UI feedback)
+    socket.on('timer_started', () => {
+      setIsRunning(true)
+    })
+
+    socket.on('timer_paused', () => {
+      setIsRunning(false)
+    })
+
     // Listen for timer finished notifications
-    socket.on('timer_finished', () => {
+    socket.on('timer_finished', (data) => {
       playNotificationSound()
+      showBrowserNotification(data.sessionType, data.nextSessionType)
     })
 
     return () => {
@@ -48,23 +65,58 @@ export default function PomodoroTimer() {
     }
   }, [clientId])
 
+  const showBrowserNotification = (completedSession, nextSession) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const title = completedSession === 'focus' 
+        ? '🍅 Focus Session Complete!' 
+        : '☕ Break Time Over!'
+      
+      const body = nextSession === 'focus'
+        ? 'Time to get back to work! 🎯'
+        : 'Great work! Time for a break! ☕'
+      
+      const notification = new Notification(title, {
+        body,
+        icon: '/favicon.ico', // You can add a custom icon
+        badge: '/favicon.ico',
+        tag: 'pomodoro-timer', // Prevents notification spam
+        requireInteraction: false,
+        silent: false
+      })
+
+      // Auto-close notification after 5 seconds
+      setTimeout(() => {
+        notification.close()
+      }, 5000)
+    }
+  }
+
   const playNotificationSound = () => {
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-      const oscillator = audioContext.createOscillator()
+      
+      // Create a more pleasant notification sound
+      const oscillator1 = audioContext.createOscillator()
+      const oscillator2 = audioContext.createOscillator()
       const gainNode = audioContext.createGain()
       
-      oscillator.connect(gainNode)
+      oscillator1.connect(gainNode)
+      oscillator2.connect(gainNode)
       gainNode.connect(audioContext.destination)
       
-      oscillator.frequency.value = 800
-      oscillator.type = 'sine'
+      // Two-tone chime
+      oscillator1.frequency.value = 800
+      oscillator2.frequency.value = 600
+      oscillator1.type = 'sine'
+      oscillator2.type = 'sine'
       
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+      gainNode.gain.setValueAtTime(0.15, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1)
       
-      oscillator.start()
-      oscillator.stop(audioContext.currentTime + 0.5)
+      oscillator1.start()
+      oscillator2.start()
+      oscillator1.stop(audioContext.currentTime + 1)
+      oscillator2.stop(audioContext.currentTime + 1)
     } catch (error) {
       console.log('Timer finished!')
     }
