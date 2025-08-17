@@ -19,6 +19,7 @@ export default function Whiteboard() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizing, setResizing] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false); // New state for cursor mode
   const roomId = 'global';
 
   useEffect(() => {
@@ -60,6 +61,15 @@ export default function Whiteboard() {
       setDrawings([]);
     });
 
+    // New event for initial image sync
+    socket.on('room-state', (data) => {
+      setImages(data.images || []);
+      setDrawings(data.drawings || []);
+    });
+
+    // Request current room state when joining
+    socket.emit('request-room-state', roomId);
+
     return () => {
       socket.disconnect();
     };
@@ -80,6 +90,8 @@ export default function Whiteboard() {
           const file = item.getAsFile();
           if (file) {
             handleImageFile(file);
+            // Auto-switch to select mode after pasting an image
+            setIsSelectMode(true);
           }
         }
       }
@@ -195,11 +207,16 @@ export default function Whiteboard() {
         };
         
         setImages(prev => [...prev, imageData]);
+        
+        // Emit image-added event with proper structure
         socketRef.current.emit('image-added', {
           roomId,
           clientId,
           image: imageData
         });
+        
+        // Auto-select the newly added image
+        setSelectedImage(imageData);
       };
       img.src = e.target.result;
     };
@@ -272,7 +289,14 @@ export default function Whiteboard() {
       return;
     }
     
-    // Deselect image and start drawing
+    // If in select mode and clicked on empty space, deselect image
+    if (isSelectMode) {
+      setSelectedImage(null);
+      setIsDraggingImage(false);
+      return;
+    }
+    
+    // Deselect image and start drawing (only in draw mode)
     setSelectedImage(null);
     setIsDraggingImage(false);
     drawingRef.current = true;
@@ -367,9 +391,9 @@ export default function Whiteboard() {
       return;
     }
     
-    if (!drawingRef.current) return;
+    if (!drawingRef.current || isSelectMode) return;
     
-    // Original drawing logic - only when not interacting with images
+    // Original drawing logic - only when not in select mode and not interacting with images
     const line = { from: lastPosRef.current, to: pos };
     const payload = {
       roomId,
@@ -425,6 +449,8 @@ export default function Whiteboard() {
     const file = e.target.files?.[0];
     if (file) {
       handleImageFile(file);
+      // Auto-switch to select mode after uploading an image
+      setIsSelectMode(true);
     }
   }
 
@@ -449,6 +475,12 @@ export default function Whiteboard() {
           deleteSelectedImage();
         }
       }
+      // Toggle between draw and select modes with 'S' key
+      if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setIsSelectMode(prev => !prev);
+        setSelectedImage(null); // Deselect when switching modes
+      }
     };
     
     window.addEventListener('keydown', handleKeyDown);
@@ -470,6 +502,12 @@ export default function Whiteboard() {
     handleMouseMove(fake);
   }
 
+  // Get cursor style based on current mode
+  function getCursorStyle() {
+    if (isSelectMode) return 'default';
+    return 'crosshair';
+  }
+
   return (
     <div className="whiteboard-container">
       <div className="controls">
@@ -487,6 +525,16 @@ export default function Whiteboard() {
             onChange={(e) => setWidth(Number(e.target.value))}
           />
         </label>
+        <button 
+          onClick={() => setIsSelectMode(!isSelectMode)}
+          style={{
+            backgroundColor: isSelectMode ? '#28a745' : '#6c757d',
+            color: 'white'
+          }}
+          title="Toggle between draw and select mode (Press 'S')"
+        >
+          {isSelectMode ? '👆 Select' : '✏️ Draw'}
+        </button>
         <button onClick={handleClear}>Clear</button>
         <button onClick={handleFileUpload}>Upload Image</button>
         {selectedImage && (
@@ -514,10 +562,17 @@ export default function Whiteboard() {
           onTouchEnd={stopDrawing}
           onTouchCancel={stopDrawing}
           onTouchMove={handleTouchMove}
+          style={{ cursor: getCursorStyle() }}
         />
       </div>
       
       <div className="instructions">
+        <p><strong>Controls:</strong></p>
+        <ul>
+          <li><strong>Toggle Mode:</strong> Click "Draw/Select" button or press 'S'</li>
+          <li><strong>Draw Mode:</strong> ✏️ Draw lines on canvas</li>
+          <li><strong>Select Mode:</strong> 👆 Click to select/move images</li>
+        </ul>
         <p><strong>Image Controls:</strong></p>
         <ul>
           <li>Upload images using the "Upload Image" button</li>

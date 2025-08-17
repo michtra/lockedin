@@ -19,6 +19,19 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase limit for base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Store room states in memory (in production, you'd want to use Redis or a database)
+const roomStates = {};
+
+function getRoomState(roomId) {
+  if (!roomStates[roomId]) {
+    roomStates[roomId] = {
+      images: [],
+      drawings: []
+    };
+  }
+  return roomStates[roomId];
+}
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -27,26 +40,58 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} joined room ${roomId}`);
   });
 
+  // New event to send current room state to newly joined users
+  socket.on('request-room-state', (roomId) => {
+    const roomState = getRoomState(roomId);
+    socket.emit('room-state', roomState);
+    console.log(`Sent room state to ${socket.id} for room ${roomId}`);
+  });
+
   // Existing drawing event
   socket.on('drawing', (data) => {
+    // Store the drawing in room state
+    const roomState = getRoomState(data.roomId);
+    roomState.drawings.push(data);
+    
     socket.to(data.roomId).emit('drawing', data);
   });
 
-  // New image events
+  // Enhanced image events with room state management
   socket.on('image-added', (data) => {
+    // Store the image in room state
+    const roomState = getRoomState(data.roomId);
+    roomState.images.push(data.image);
+    
     socket.to(data.roomId).emit('image-added', data);
+    console.log(`Image added to room ${data.roomId} by ${data.clientId}`);
   });
 
   socket.on('image-updated', (data) => {
+    // Update the image in room state
+    const roomState = getRoomState(data.roomId);
+    const imageIndex = roomState.images.findIndex(img => img.id === data.image.id);
+    if (imageIndex !== -1) {
+      roomState.images[imageIndex] = data.image;
+    }
+    
     socket.to(data.roomId).emit('image-updated', data);
   });
 
   socket.on('image-deleted', (data) => {
+    // Remove the image from room state
+    const roomState = getRoomState(data.roomId);
+    roomState.images = roomState.images.filter(img => img.id !== data.imageId);
+    
     socket.to(data.roomId).emit('image-deleted', data);
   });
 
-  // Existing clear event (now also clears images)
+  // Enhanced clear event (now also clears room state)
   socket.on('clear', (data) => {
+    // Clear room state
+    const roomState = getRoomState(data.roomId);
+    roomState.images = [];
+    roomState.drawings = [];
+    
     socket.to(data.roomId).emit('clear', data);
   });
 
