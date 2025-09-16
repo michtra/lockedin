@@ -1,6 +1,9 @@
 # lockedin
 Group studying application
 
+## Figma Design
+The figma design can be found [here.](https://www.figma.com/design/hmjsbTbgDi6Pm4iEKIZzeL/)
+
 # Setup
 - Clone the repository
 
