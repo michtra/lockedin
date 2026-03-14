@@ -1,4 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import io from 'socket.io-client';
+
+const SERVER_URL = 'http://localhost:3000';
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
@@ -125,26 +128,58 @@ function AddNoteForm({ onAdd }) {
   );
 }
 
-export default function StickyBoard() {
+export default function StickyBoard({ roomId }) {
   const [notes, setNotes] = useState([]);
   const [dragOverColumn, setDragOverColumn] = useState(null);
   const draggingId = useRef(null);
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    socketRef.current = io(SERVER_URL);
+    const socket = socketRef.current;
+
+    socket.on('connect', () => {
+      socket.emit('join', roomId);
+      socket.emit('request-room-state', roomId);
+    });
+
+    socket.on('room-state', (data) => {
+      if (data.notes) setNotes(data.notes);
+    });
+
+    socket.on('note-add', (note) => {
+      setNotes(prev => [...prev, note]);
+    });
+
+    socket.on('note-edit', ({ id, text }) => {
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
+    });
+
+    socket.on('note-move', ({ id, column }) => {
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, column } : n));
+    });
+
+    socket.on('note-delete', ({ id }) => {
+      setNotes(prev => prev.filter(n => n.id !== id));
+    });
+
+    return () => socket.disconnect();
+  }, [roomId]);
 
   function addNote(column, text) {
-    setNotes((prev) => [
-      ...prev,
-      { id: generateId(), text, column },
-    ]);
+    const note = { id: generateId(), text, column };
+    setNotes(prev => [...prev, note]);
+    socketRef.current?.emit('note-add', { roomId, note });
   }
 
   function editNote(id, text) {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, text } : n))
-    );
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
+    socketRef.current?.emit('note-edit', { roomId, id, text });
   }
 
   function deleteNote(id) {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+    setNotes(prev => prev.filter(n => n.id !== id));
+    socketRef.current?.emit('note-delete', { roomId, id });
   }
 
   function handleDragStart(e, id) {
@@ -162,9 +197,8 @@ export default function StickyBoard() {
     e.preventDefault();
     const id = draggingId.current;
     if (!id) return;
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, column } : n))
-    );
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, column } : n));
+    socketRef.current?.emit('note-move', { roomId, id, column });
     draggingId.current = null;
     setDragOverColumn(null);
   }

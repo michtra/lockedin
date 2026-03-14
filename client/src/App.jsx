@@ -57,10 +57,10 @@ export default function App() {
         </button>
       </div>
       <div className="session-body">
-        <PomodoroTimer />
+        <PomodoroTimer roomId={roomId} />
         <Whiteboard roomId={roomId} />
         <div className="sticky-board-panel">
-          <StickyBoard />
+          <StickyBoard roomId={roomId} />
         </div>
       </div>
     </div>
