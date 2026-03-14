@@ -1,49 +1,42 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import io from 'socket.io-client';
+
+const SERVER_URL = 'http://localhost:3000';
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function StickyNote({ note, onEdit, onDelete, onDragStart }) {
+function StickyNote({ note, canEdit, onEdit, onDelete, onDragStart, onDragEnd }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.text);
   const textareaRef = useRef(null);
 
   function startEdit() {
+    if (!canEdit) return;
     setDraft(note.text);
     setEditing(true);
-    // Focus happens after render
     setTimeout(() => textareaRef.current?.focus(), 0);
   }
 
   function commitEdit() {
     const trimmed = draft.trim();
-    if (trimmed) {
-      onEdit(note.id, trimmed);
-    } else {
-      setDraft(note.text);
-    }
+    if (trimmed) onEdit(note.id, trimmed);
+    else setDraft(note.text);
     setEditing(false);
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      commitEdit();
-    }
-    if (e.key === 'Escape') {
-      setDraft(note.text);
-      setEditing(false);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); }
+    if (e.key === 'Escape') { setDraft(note.text); setEditing(false); }
   }
 
   return (
     <div
       className="sticky-note"
       draggable={!editing}
-      onDragStart={(e) => {
-        if (!editing) onDragStart(e, note.id);
-      }}
+      onDragStart={(e) => { if (!editing) onDragStart(e, note.id); }}
+      onDragEnd={onDragEnd}
     >
       {editing ? (
         <textarea
@@ -59,13 +52,19 @@ function StickyNote({ note, onEdit, onDelete, onDragStart }) {
           {note.text}
         </p>
       )}
-      <button
-        className="sticky-note-delete"
-        onClick={() => onDelete(note.id)}
-        title="Delete note"
-      >
-        x
-      </button>
+      <div className="sticky-note-footer">
+        {note.authorAvatar && (
+          <img className="sticky-note-avatar" src={note.authorAvatar} alt={note.authorName} title={note.authorName} />
+        )}
+        {note.authorName && (
+          <span className="sticky-note-author">{note.authorName}</span>
+        )}
+      </div>
+      {canEdit && (
+        <button className="sticky-note-delete" onClick={() => onDelete(note.id)} title="Delete note">
+          x
+        </button>
+      )}
     </div>
   );
 }
@@ -89,22 +88,12 @@ function AddNoteForm({ onAdd }) {
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSave();
-    }
-    if (e.key === 'Escape') {
-      setText('');
-      setOpen(false);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSave(); }
+    if (e.key === 'Escape') { setText(''); setOpen(false); }
   }
 
   if (!open) {
-    return (
-      <button className="add-note-btn" onClick={openForm}>
-        + Add Note
-      </button>
-    );
+    return <button className="add-note-btn" onClick={openForm}>+ Add Note</button>;
   }
 
   return (
@@ -125,26 +114,54 @@ function AddNoteForm({ onAdd }) {
   );
 }
 
-export default function StickyBoard() {
+export default function StickyBoard({ roomId, member }) {
   const [notes, setNotes] = useState([]);
   const [dragOverColumn, setDragOverColumn] = useState(null);
   const draggingId = useRef(null);
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    socketRef.current = io(SERVER_URL);
+    const socket = socketRef.current;
+
+    socket.on('connect', () => {
+      socket.emit('join', roomId);
+      socket.emit('request-room-state', roomId);
+    });
+
+    socket.on('room-state', (data) => {
+      if (data.notes) setNotes(data.notes);
+    });
+
+    socket.on('note-add', (note) => setNotes(prev => [...prev, note]));
+    socket.on('note-edit', ({ id, text }) => setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n)));
+    socket.on('note-move', ({ id, column }) => setNotes(prev => prev.map(n => n.id === id ? { ...n, column } : n)));
+    socket.on('note-delete', ({ id }) => setNotes(prev => prev.filter(n => n.id !== id)));
+
+    return () => socket.disconnect();
+  }, [roomId]);
 
   function addNote(column, text) {
-    setNotes((prev) => [
-      ...prev,
-      { id: generateId(), text, column },
-    ]);
+    const note = {
+      id: generateId(),
+      text,
+      column,
+      authorId: member?.id,
+      authorName: member?.name,
+      authorAvatar: member?.avatar,
+    };
+    setNotes(prev => [...prev, note]);
+    socketRef.current?.emit('note-add', { roomId, note });
   }
 
   function editNote(id, text) {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, text } : n))
-    );
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
+    socketRef.current?.emit('note-edit', { roomId, id, text });
   }
 
   function deleteNote(id) {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+    setNotes(prev => prev.filter(n => n.id !== id));
+    socketRef.current?.emit('note-delete', { roomId, id });
   }
 
   function handleDragStart(e, id) {
@@ -162,24 +179,17 @@ export default function StickyBoard() {
     e.preventDefault();
     const id = draggingId.current;
     if (!id) return;
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, column } : n))
-    );
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, column } : n));
+    socketRef.current?.emit('note-move', { roomId, id, column });
     draggingId.current = null;
     setDragOverColumn(null);
   }
 
-  function handleDragLeave() {
-    setDragOverColumn(null);
-  }
+  function handleDragLeave() { setDragOverColumn(null); }
+  function handleDragEnd() { draggingId.current = null; setDragOverColumn(null); }
 
-  function handleDragEnd() {
-    draggingId.current = null;
-    setDragOverColumn(null);
-  }
-
-  const todoNotes = notes.filter((n) => n.column === 'todo');
-  const doneNotes = notes.filter((n) => n.column === 'done');
+  const todoNotes = notes.filter(n => n.column === 'todo');
+  const doneNotes = notes.filter(n => n.column === 'done');
 
   return (
     <div className="sticky-board">
@@ -187,55 +197,34 @@ export default function StickyBoard() {
         <h2 className="sticky-board-title">Feynman Topics</h2>
       </div>
       <div className="sticky-columns">
-        <div
-          className={`sticky-column${dragOverColumn === 'todo' ? ' sticky-column--drag-over' : ''}`}
-          onDragOver={(e) => handleDragOver(e, 'todo')}
-          onDrop={(e) => handleDrop(e, 'todo')}
-          onDragLeave={handleDragLeave}
-        >
-          <div className="sticky-column-header">
-            <span className="sticky-column-title">To Discuss</span>
-            <span className="sticky-column-count">{todoNotes.length}</span>
+        {[{ col: 'todo', label: 'To Discuss', items: todoNotes }, { col: 'done', label: 'Discussed', items: doneNotes }].map(({ col, label, items }) => (
+          <div
+            key={col}
+            className={`sticky-column${dragOverColumn === col ? ' sticky-column--drag-over' : ''}`}
+            onDragOver={(e) => handleDragOver(e, col)}
+            onDrop={(e) => handleDrop(e, col)}
+            onDragLeave={handleDragLeave}
+          >
+            <div className="sticky-column-header">
+              <span className="sticky-column-title">{label}</span>
+              <span className="sticky-column-count">{items.length}</span>
+            </div>
+            <div className="sticky-column-notes">
+              {items.map(note => (
+                <StickyNote
+                  key={note.id}
+                  note={note}
+                  canEdit={note.authorId === member?.id}
+                  onEdit={editNote}
+                  onDelete={deleteNote}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                />
+              ))}
+            </div>
+            <AddNoteForm onAdd={(text) => addNote(col, text)} />
           </div>
-          <div className="sticky-column-notes">
-            {todoNotes.map((note) => (
-              <StickyNote
-                key={note.id}
-                note={note}
-                onEdit={editNote}
-                onDelete={deleteNote}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              />
-            ))}
-          </div>
-          <AddNoteForm onAdd={(text) => addNote('todo', text)} />
-        </div>
-
-        <div
-          className={`sticky-column${dragOverColumn === 'done' ? ' sticky-column--drag-over' : ''}`}
-          onDragOver={(e) => handleDragOver(e, 'done')}
-          onDrop={(e) => handleDrop(e, 'done')}
-          onDragLeave={handleDragLeave}
-        >
-          <div className="sticky-column-header">
-            <span className="sticky-column-title">Discussed</span>
-            <span className="sticky-column-count">{doneNotes.length}</span>
-          </div>
-          <div className="sticky-column-notes">
-            {doneNotes.map((note) => (
-              <StickyNote
-                key={note.id}
-                note={note}
-                onEdit={editNote}
-                onDelete={deleteNote}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              />
-            ))}
-          </div>
-          <AddNoteForm onAdd={(text) => addNote('done', text)} />
-        </div>
+        ))}
       </div>
     </div>
   );

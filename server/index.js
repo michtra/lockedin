@@ -27,7 +27,16 @@ function getRoomState(roomId) {
     roomStates[roomId] = {
       images: [],
       drawings: [],
-      members: []
+      members: [],
+      notes: [],
+      timer: {
+        mode: 'focus',
+        status: 'stopped',
+        secondsLeft: 25 * 60,
+        focusMinutes: 25,
+        breakMinutes: 5,
+        startedAt: null
+      }
     };
   }
   return roomStates[roomId];
@@ -70,7 +79,9 @@ io.on('connection', (socket) => {
     socket.emit('room-state', {
       images: roomState.images,
       drawings: roomState.drawings,
-      members: roomState.members
+      members: roomState.members,
+      notes: roomState.notes,
+      timer: roomState.timer
     });
     console.log(`Sent room state to ${socket.id} for room ${roomId}`);
   });
@@ -111,6 +122,53 @@ io.on('connection', (socket) => {
     roomState.images = roomState.images.filter(img => img.id !== data.imageId);
     
     socket.to(data.roomId).emit('image-deleted', data);
+  });
+
+  socket.on('timer-action', (data) => {
+    const { roomId, action, payload } = data;
+    const roomState = getRoomState(roomId);
+    const timer = roomState.timer;
+    if (action === 'start' || action === 'resume') {
+      timer.status = 'running'; timer.startedAt = Date.now();
+      if (payload) { timer.secondsLeft = payload.secondsLeft; timer.mode = payload.mode; }
+    } else if (action === 'pause') {
+      timer.status = 'paused'; timer.startedAt = null;
+      if (payload) timer.secondsLeft = payload.secondsLeft;
+    } else if (action === 'stop') {
+      timer.status = 'stopped'; timer.startedAt = null;
+      timer.mode = 'focus'; timer.secondsLeft = timer.focusMinutes * 60;
+    } else if (action === 'settings') {
+      timer.focusMinutes = payload.focusMinutes; timer.breakMinutes = payload.breakMinutes; timer.secondsLeft = payload.secondsLeft;
+    } else if (action === 'tick') {
+      if (payload) { timer.secondsLeft = payload.secondsLeft; if (payload.mode) timer.mode = payload.mode; }
+    }
+    socket.to(roomId).emit('timer-sync', roomState.timer);
+  });
+
+  socket.on('note-add', ({ roomId, note }) => {
+    const roomState = getRoomState(roomId);
+    roomState.notes.push(note);
+    socket.to(roomId).emit('note-add', note);
+  });
+
+  socket.on('note-edit', ({ roomId, id, text }) => {
+    const roomState = getRoomState(roomId);
+    const note = roomState.notes.find(n => n.id === id);
+    if (note) note.text = text;
+    socket.to(roomId).emit('note-edit', { id, text });
+  });
+
+  socket.on('note-move', ({ roomId, id, column }) => {
+    const roomState = getRoomState(roomId);
+    const note = roomState.notes.find(n => n.id === id);
+    if (note) note.column = column;
+    socket.to(roomId).emit('note-move', { id, column });
+  });
+
+  socket.on('note-delete', ({ roomId, id }) => {
+    const roomState = getRoomState(roomId);
+    roomState.notes = roomState.notes.filter(n => n.id !== id);
+    socket.to(roomId).emit('note-delete', { id });
   });
 
   // Enhanced clear event (now also clears room state)
