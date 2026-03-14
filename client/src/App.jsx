@@ -56,7 +56,7 @@ export default function App() {
         </button>
       </div>
       <div className="session-body">
-        <PomodoroTimer />
+        <PomodoroTimer roomId={roomId} />
         <Whiteboard roomId={roomId} />
       </div>
     </div>
