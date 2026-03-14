@@ -348,6 +348,348 @@ canvas {
   line-height: 1.4;
 }
 
+/* Session sidebar (member list + sticky board) */
+.session-sidebar {
+  width: 280px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  border-left: 1px solid #dee2e6;
+  overflow-y: auto;
+}
+
+/* Member list */
+.member-list {
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.member-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.member-list-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #444;
+}
+
+.member-list-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #bfc4cc;
+  color: #333;
+  border-radius: 10px;
+  padding: 1px 7px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.member-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: white;
+  border: 1px solid #e9ecef;
+}
+
+.member-item--me {
+  border-color: #007bff;
+  background: #f0f7ff;
+}
+
+.member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.member-name {
+  font-size: 0.85rem;
+  color: #333;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.member-you-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: #007bff;
+  color: white;
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.member-avatar-btn {
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  background: transparent;
+  color: #007bff;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.member-avatar-btn:hover {
+  background: #007bff;
+  color: white;
+}
+
+/* Sticky board panel */
+.sticky-board-panel {
+  width: 320px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  border-left: 1px solid #dee2e6;
+  overflow-y: auto;
+}
+
+.sticky-board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px 12px 12px;
+  box-sizing: border-box;
+}
+
+.sticky-board-header {
+  margin-bottom: 12px;
+}
+
+.sticky-board-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sticky-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.sticky-column {
+  background: #e8eaed;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 120px;
+  transition: background 0.15s;
+}
+
+.sticky-column--drag-over {
+  background: #d0e8ff;
+  outline: 2px dashed #007bff;
+}
+
+.sticky-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sticky-column-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #444;
+}
+
+.sticky-column-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #bfc4cc;
+  color: #333;
+  border-radius: 10px;
+  padding: 1px 7px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.sticky-column-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Sticky notes */
+.sticky-note {
+  position: relative;
+  background: #fef08a;
+  border-radius: 4px;
+  padding: 8px 28px 8px 10px;
+  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+  cursor: grab;
+  min-height: 36px;
+}
+
+.sticky-note:active {
+  cursor: grabbing;
+  opacity: 0.75;
+}
+
+.sticky-note-text {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #333;
+  word-break: break-word;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.sticky-note-textarea {
+  width: 100%;
+  min-height: 60px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  font-family: inherit;
+  line-height: 1.4;
+  color: #333;
+  resize: vertical;
+  outline: 1px solid #aaa;
+  border-radius: 2px;
+  padding: 2px 4px;
+  box-sizing: border-box;
+}
+
+.sticky-note-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sticky-note-delete:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/* Add note form */
+.add-note-btn {
+  width: 100%;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px dashed #aaa;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.add-note-btn:hover {
+  background: #fff;
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.add-note-form {
+  background: #fef08a;
+  border-radius: 4px;
+  padding: 8px;
+  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+}
+
+.add-note-textarea {
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  font-family: inherit;
+  line-height: 1.4;
+  color: #333;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.add-note-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.add-note-save {
+  padding: 4px 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-note-save:hover {
+  background: #0056b3;
+}
+
+.add-note-cancel {
+  padding: 4px 10px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.add-note-cancel:hover {
+  background: #f0f0f0;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .controls {
