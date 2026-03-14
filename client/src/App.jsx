@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Whiteboard from './Whiteboard'
 import PomodoroTimer from './PomodoroTimer'
 import StickyBoard from './StickyBoard'
+import MemberList from './MemberList'
 
 async function generateRoomId() {
   const timestamp = Date.now().toString();
@@ -59,8 +60,11 @@ export default function App() {
       <div className="session-body">
         <PomodoroTimer />
         <Whiteboard roomId={roomId} />
-        <div className="sticky-board-panel">
-          <StickyBoard />
+        <div className="session-sidebar">
+          <MemberList roomId={roomId} />
+          <div className="sticky-board-panel">
+            <StickyBoard />
+          </div>
         </div>
       </div>
     </div>

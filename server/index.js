@@ -26,7 +26,8 @@ function getRoomState(roomId) {
   if (!roomStates[roomId]) {
     roomStates[roomId] = {
       images: [],
-      drawings: []
+      drawings: [],
+      members: []
     };
   }
   return roomStates[roomId];
@@ -35,15 +36,42 @@ function getRoomState(roomId) {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
+  // Track which rooms this socket is in (for member cleanup on disconnect)
+  const socketRooms = new Set();
+
   socket.on('join', (roomId) => {
     socket.join(roomId);
+    socketRooms.add(roomId);
     console.log(`User ${socket.id} joined room ${roomId}`);
+  });
+
+  socket.on('member-join', ({ roomId, member }) => {
+    const roomState = getRoomState(roomId);
+    // Remove any stale entry for this member id, then add fresh
+    roomState.members = roomState.members.filter(m => m.id !== member.id);
+    // Attach socketId so we can clean up on disconnect
+    roomState.members.push({ ...member, socketId: socket.id });
+    io.to(roomId).emit('member-list', roomState.members);
+    console.log(`Member ${member.name} joined room ${roomId}`);
+  });
+
+  socket.on('member-update', ({ roomId, member }) => {
+    const roomState = getRoomState(roomId);
+    const idx = roomState.members.findIndex(m => m.id === member.id);
+    if (idx !== -1) {
+      roomState.members[idx] = { ...member, socketId: socket.id };
+    }
+    io.to(roomId).emit('member-list', roomState.members);
   });
 
   // New event to send current room state to newly joined users
   socket.on('request-room-state', (roomId) => {
     const roomState = getRoomState(roomId);
-    socket.emit('room-state', roomState);
+    socket.emit('room-state', {
+      images: roomState.images,
+      drawings: roomState.drawings,
+      members: roomState.members
+    });
     console.log(`Sent room state to ${socket.id} for room ${roomId}`);
   });
 
@@ -97,6 +125,13 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+    // Remove this socket's member from all rooms it joined
+    for (const roomId of socketRooms) {
+      const roomState = roomStates[roomId];
+      if (!roomState) continue;
+      roomState.members = roomState.members.filter(m => m.socketId !== socket.id);
+      io.to(roomId).emit('member-list', roomState.members);
+    }
   });
 });
 

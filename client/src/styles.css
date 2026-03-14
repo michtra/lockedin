@@ -350,8 +350,8 @@ canvas {
 
 /* Session sidebar (member list + sticky board) */
 .session-sidebar {
-  width: 280px;
-  min-width: 240px;
+  width: 320px;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
   background: #f8f9fa;
@@ -699,11 +699,11 @@ canvas {
     margin-bottom: 10px;
     justify-content: center;
   }
-  
+
   .instructions {
     display: none; /* Hide on mobile to save space */
   }
-  
+
   .whiteboard-container {
     height: calc(100vh - 80px); /* Account for controls */
   }
