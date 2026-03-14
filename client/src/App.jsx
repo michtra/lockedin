@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Whiteboard from './Whiteboard'
+import PomodoroTimer from './PomodoroTimer'
 
 async function generateRoomId() {
   const timestamp = Date.now().toString();
@@ -54,7 +55,10 @@ export default function App() {
           {copied ? 'Copied!' : 'Copy Link'}
         </button>
       </div>
-      <Whiteboard roomId={roomId} />
+      <div className="session-body">
+        <PomodoroTimer />
+        <Whiteboard roomId={roomId} />
+      </div>
     </div>
   );
 }
