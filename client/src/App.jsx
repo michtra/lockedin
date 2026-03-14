@@ -3,6 +3,7 @@ import Whiteboard from './Whiteboard'
 import PomodoroTimer from './PomodoroTimer'
 import StickyBoard from './StickyBoard'
 import MemberList from './MemberList'
+import ProgressChart from './ProgressChart'
 
 const AVATAR_COLORS = [
   '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71',
@@ -98,6 +99,7 @@ export default function App() {
         <Whiteboard roomId={roomId} />
         <div className="session-sidebar">
           <MemberList roomId={roomId} myMember={myMember} onMemberUpdate={setMyMember} />
+          <ProgressChart roomId={roomId} />
           <div className="sticky-board-panel">
             <StickyBoard roomId={roomId} member={myMember} />
           </div>

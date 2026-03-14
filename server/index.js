@@ -29,6 +29,10 @@ function getRoomState(roomId) {
       drawings: [],
       members: [],
       notes: [],
+      progress: {
+        focusSessions: 0,
+        topicsDiscussed: 0
+      },
       timer: {
         mode: 'focus',
         status: 'stopped',
@@ -81,7 +85,8 @@ io.on('connection', (socket) => {
       drawings: roomState.drawings,
       members: roomState.members,
       notes: roomState.notes,
-      timer: roomState.timer
+      timer: roomState.timer,
+      progress: roomState.progress
     });
     console.log(`Sent room state to ${socket.id} for room ${roomId}`);
   });
@@ -128,6 +133,7 @@ io.on('connection', (socket) => {
     const { roomId, action, payload } = data;
     const roomState = getRoomState(roomId);
     const timer = roomState.timer;
+    const prevMode = timer.mode;
     if (action === 'start' || action === 'resume') {
       timer.status = 'running'; timer.startedAt = Date.now();
       if (payload) { timer.secondsLeft = payload.secondsLeft; timer.mode = payload.mode; }
@@ -140,7 +146,15 @@ io.on('connection', (socket) => {
     } else if (action === 'settings') {
       timer.focusMinutes = payload.focusMinutes; timer.breakMinutes = payload.breakMinutes; timer.secondsLeft = payload.secondsLeft;
     } else if (action === 'tick') {
-      if (payload) { timer.secondsLeft = payload.secondsLeft; if (payload.mode) timer.mode = payload.mode; }
+      if (payload) {
+        // Detect focus -> break transition (completed session)
+        if (payload.mode && payload.mode !== timer.mode && timer.mode === 'focus') {
+          roomState.progress.focusSessions++;
+          io.to(roomId).emit('progress-update', roomState.progress);
+        }
+        timer.secondsLeft = payload.secondsLeft;
+        if (payload.mode) timer.mode = payload.mode;
+      }
     }
     socket.to(roomId).emit('timer-sync', roomState.timer);
   });
@@ -161,7 +175,14 @@ io.on('connection', (socket) => {
   socket.on('note-move', ({ roomId, id, column }) => {
     const roomState = getRoomState(roomId);
     const note = roomState.notes.find(n => n.id === id);
-    if (note) note.column = column;
+    if (note) {
+      const wasNotDone = note.column !== 'done';
+      note.column = column;
+      if (column === 'done' && wasNotDone) {
+        roomState.progress.topicsDiscussed++;
+        io.to(roomId).emit('progress-update', roomState.progress);
+      }
+    }
     socket.to(roomId).emit('note-move', { id, column });
   });
 

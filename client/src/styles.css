@@ -745,6 +745,21 @@ canvas {
   background: #f0f0f0;
 }
 
+/* Progress chart */
+.progress-chart {
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.progress-chart-title {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #444;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .controls {
