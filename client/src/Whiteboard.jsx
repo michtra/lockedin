@@ -10,6 +10,8 @@ export default function Whiteboard() {
   const drawingRef = useRef(false);
   const lastPosRef = useRef({ x: 0, y: 0 });
   const fileInputRef = useRef(null);
+  const imageCacheRef = useRef({});
+  const redrawCanvasRef = useRef(null);
   const [color, setColor] = useState('#000000');
   const [width, setWidth] = useState(2);
   const [clientId] = useState(() => Math.random().toString(36).slice(2, 9));
@@ -52,6 +54,7 @@ export default function Whiteboard() {
 
     socket.on('image-deleted', (data) => {
       if (data.clientId === clientId) return;
+      delete imageCacheRef.current[data.imageId];
       setImages(prev => prev.filter(img => img.id !== data.imageId));
     });
 
@@ -105,6 +108,9 @@ export default function Whiteboard() {
     };
   }, []);
 
+  // Keep ref up to date so the resize handler always calls the latest redrawCanvas
+  redrawCanvasRef.current = redrawCanvas;
+
   // Redraw everything whenever images or drawings change
   useEffect(() => {
     redrawCanvas();
@@ -116,61 +122,61 @@ export default function Whiteboard() {
     const container = canvas.parentElement;
     canvas.width = container.clientWidth;
     canvas.height = container.clientHeight || 600;
-    redrawCanvas();
+    redrawCanvasRef.current?.();
   }
 
   function redrawCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
-    // Clear the entire canvas first
+
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Redraw all drawings first (so they appear behind images)
+
     drawings.forEach(drawingData => {
       drawLineFromData(drawingData, false);
     });
-    
-    // Then redraw all images on top
+
     images.forEach(imageData => {
-      drawImage(imageData);
+      drawImageData(ctx, imageData);
     });
   }
 
-  function drawImage(imageData) {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    const img = new Image();
-    img.onload = () => {
+  function drawImageData(ctx, imageData) {
+    const cache = imageCacheRef.current;
+
+    const renderImage = (img) => {
       ctx.drawImage(img, imageData.x, imageData.y, imageData.width, imageData.height);
-      
-      // Draw selection border if selected
+
       if (selectedImage && selectedImage.id === imageData.id) {
         ctx.strokeStyle = '#007bff';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(imageData.x, imageData.y, imageData.width, imageData.height);
-        
-        // Draw resize handles (larger for easier interaction)
+
         const handleSize = 12;
         ctx.fillStyle = '#007bff';
         ctx.setLineDash([]);
-        // Corner handles
         ctx.fillRect(imageData.x - handleSize/2, imageData.y - handleSize/2, handleSize, handleSize);
         ctx.fillRect(imageData.x + imageData.width - handleSize/2, imageData.y - handleSize/2, handleSize, handleSize);
         ctx.fillRect(imageData.x - handleSize/2, imageData.y + imageData.height - handleSize/2, handleSize, handleSize);
         ctx.fillRect(imageData.x + imageData.width - handleSize/2, imageData.y + imageData.height - handleSize/2, handleSize, handleSize);
-        
-        // Edge handles for easier resizing
-        ctx.fillRect(imageData.x + imageData.width/2 - handleSize/2, imageData.y - handleSize/2, handleSize, handleSize); // top
-        ctx.fillRect(imageData.x + imageData.width/2 - handleSize/2, imageData.y + imageData.height - handleSize/2, handleSize, handleSize); // bottom
-        ctx.fillRect(imageData.x - handleSize/2, imageData.y + imageData.height/2 - handleSize/2, handleSize, handleSize); // left
-        ctx.fillRect(imageData.x + imageData.width - handleSize/2, imageData.y + imageData.height/2 - handleSize/2, handleSize, handleSize); // right
+        ctx.fillRect(imageData.x + imageData.width/2 - handleSize/2, imageData.y - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(imageData.x + imageData.width/2 - handleSize/2, imageData.y + imageData.height - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(imageData.x - handleSize/2, imageData.y + imageData.height/2 - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(imageData.x + imageData.width - handleSize/2, imageData.y + imageData.height/2 - handleSize/2, handleSize, handleSize);
       }
     };
-    img.src = imageData.src;
+
+    if (cache[imageData.id]) {
+      renderImage(cache[imageData.id]);
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        cache[imageData.id] = img;
+        redrawCanvas();
+      };
+      img.src = imageData.src;
+    }
   }
 
   function handleImageFile(file) {
@@ -435,6 +441,7 @@ export default function Whiteboard() {
 
   function handleClear() {
     clearCanvasLocal();
+    imageCacheRef.current = {};
     setImages([]);
     setDrawings([]);
     setSelectedImage(null);
@@ -456,6 +463,7 @@ export default function Whiteboard() {
 
   function deleteSelectedImage() {
     if (selectedImage) {
+      delete imageCacheRef.current[selectedImage.id];
       setImages(prev => prev.filter(img => img.id !== selectedImage.id));
       socketRef.current.emit('image-deleted', {
         roomId,
