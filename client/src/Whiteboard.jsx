@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 // change if your server is running on other host/port
 const SERVER_URL = 'http://localhost:3000';
 
-export default function Whiteboard() {
+export default function Whiteboard({ roomId }) {
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
   const drawingRef = useRef(false);
@@ -22,7 +22,6 @@ export default function Whiteboard() {
   const [resizing, setResizing] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false); // New state for cursor mode
-  const roomId = 'global';
 
   useEffect(() => {
     socketRef.current = io(SERVER_URL);
