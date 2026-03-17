@@ -102,7 +102,10 @@ io.on('connection', (socket) => {
     if (action === 'start' || action === 'resume') {
       timer.status = 'running';
       timer.startedAt = Date.now();
-      if (payload) { timer.secondsLeft = payload.secondsLeft; timer.mode = payload.mode; }
+      if (payload) {
+        timer.secondsLeft = payload.secondsLeft;
+        timer.mode = payload.mode;
+      }
     } else if (action === 'pause') {
       timer.status = 'paused';
       timer.startedAt = null;
@@ -117,7 +120,11 @@ io.on('connection', (socket) => {
       timer.breakMinutes = payload.breakMinutes;
       timer.secondsLeft = payload.secondsLeft;
     } else if (action === 'tick') {
-      if (payload) { timer.secondsLeft = payload.secondsLeft; if (payload.mode) timer.mode = payload.mode; }
+      // Keep server in sync for late joiners
+      if (payload) {
+        timer.secondsLeft = payload.secondsLeft;
+        if (payload.mode) timer.mode = payload.mode;
+      }
     }
 
     socket.to(roomId).emit('timer-sync', roomState.timer);
